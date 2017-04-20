@@ -69,6 +69,8 @@ ds <- create_holdout_partition(imdb5k.mldr, partitions, method="iterative")
 # Create an Ensemble of Classifier Chains using Random Forest (randomForest package)
 eccmodel <- ecc(ds$train, "RF", m=3, cores=parallel::detectCores(), seed=123)
 
+rakel.model <- rakel(ds$train, "SVM", cores=2)
+
 # Predict
 val <- predict(eccmodel, ds$val, cores=parallel::detectCores())
 test <- predict(eccmodel, ds$test, cores=parallel::detectCores())
