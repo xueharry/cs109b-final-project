@@ -27,12 +27,17 @@ which(startsWith(colnames(imdb5k), "i_"))
 ```
 
 ```{r}
+# drop NA rows
 imdb5k.clean <- imdb5k[!apply(imdb5k, 1, function(x) any(is.na(x))),]
+
+# drop categoricals
+nums <- sapply(imdb5k.clean, is.numeric)
+imdb5k.clean <- imdb5k.clean[, nums]
 ```
 
 
 ```{r}
-imdb5k.mldr <- mldr_from_dataframe(dataframe=imdb5k.clean, labelIndices=which(startsWith(colnames(imdb5k), "i_")))
+imdb5k.mldr <- mldr_from_dataframe(dataframe=imdb5k.clean, labelIndices=which(startsWith(colnames(imdb5k.clean), "i_")))
 ```
 
 
@@ -67,13 +72,11 @@ partitions <- c(train = 0.6, val = 0.2, test = 0.2)
 ds <- create_holdout_partition(imdb5k.mldr, partitions, method="iterative")
 
 # Create an Ensemble of Classifier Chains using Random Forest (randomForest package)
-eccmodel <- ecc(ds$train, "RF", m=3, cores=parallel::detectCores(), seed=123)
-
-rakel.model <- rakel(ds$train, "SVM", cores=2)
+rakel.model <- rakel(ds$train, "RF", cores=2)
 
 # Predict
-val <- predict(eccmodel, ds$val, cores=parallel::detectCores())
-test <- predict(eccmodel, ds$test, cores=parallel::detectCores())
+val <- predict(rakel.model, ds$val, cores=parallel::detectCores())
+test <- predict(rakel.model, ds$test, cores=parallel::detectCores())
 
 # Apply a threshold
 thresholds <- scut_threshold(val, ds$val, cores=parallel::detectCores())
