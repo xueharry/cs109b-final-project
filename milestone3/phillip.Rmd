@@ -6,92 +6,118 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, cache=TRUE)
 ```
 
 ```{r}
 library("caTools")
 library("utiml")
+library("corrplot")
 ```
 
 
 ```{r}
+## PREPARE DATA ##
+
+# load data
 imdb5k <- read.csv('imdb5konehot.csv')
-# msk <- sample.split(imdb5k, SplitRatio=8/10)
-# train <- imdb5k[msk,]
-# test <- imdb5k[!msk,]
-#     
-# startsWith(colnames(imdb5k), "i_")
-# which(startsWith(colnames(imdb5k), "i_"))
-```
-
-```{r}
-# drop NA rows
-imdb5k.clean <- imdb5k[!apply(imdb5k, 1, function(x) any(is.na(x))),]
 
 # drop categoricals
-nums <- sapply(imdb5k.clean, is.numeric)
-imdb5k.clean <- imdb5k.clean[, nums]
+imdb5k <- imdb5k[, sapply(imdb5k, is.numeric)]
+
+# impute all columns by column mean
+for(i in 1:ncol(imdb5k)){
+    imdb5k[is.na(imdb5k[,i]), i] <- mean(imdb5k[,i], na.rm = TRUE)
+}
+
+# create MLDR object
+imdb5k.mldr <- mldr_from_dataframe(dataframe=imdb5k, labelIndices=which(startsWith(colnames(imdb5k), "i_")))
+
+# train-test split
+ds <- create_holdout_partition(imdb5k.mldr, c(train=0.80, test=0.20))
 ```
 
 
 ```{r}
-imdb5k.mldr <- mldr_from_dataframe(dataframe=imdb5k.clean, labelIndices=which(startsWith(colnames(imdb5k.clean), "i_")))
-```
+## BINARY RELEVANCE ##
 
+# binary relevance with random forests
+br.model <- br(ds$train, "RF", cores=2)
 
-```{r}
-# Create two partitions (train and test) of toyml multi-label dataset
-ds <- create_holdout_partition(imdb5k.mldr, c(train=0.65, test=0.35))
+# predict
+prediction.br <- predict(br.model, ds$test)
 
-# Create a Binary Relevance Model using e1071::svm method
-brmodel <- br(ds$train, "SVM", seed=123)
-
-# Predict
-prediction <- predict(brmodel, ds$test)
-
-# Show the predictions
-head(as.bipartition(prediction))
-head(as.ranking(prediction))
-
-# Apply a threshold
-newpred <- rcut_threshold(prediction, 2)
-
-# Evaluate the models
-result <- multilabel_evaluate(ds$tes, prediction, "bipartition")
-thresres <- multilabel_evaluate(ds$tes, newpred, "bipartition")
-
-# Print the result
-print(round(cbind(Default=result, RCUT=thresres), 3))
+# evaluate binary relevance
+br.result <- multilabel_evaluate(ds$tes, prediction.br, "bipartition")
 ```
 
 ```{r}
-# Create three partitions (train, val, test) of emotions dataset
-partitions <- c(train = 0.6, val = 0.2, test = 0.2)
-ds <- create_holdout_partition(imdb5k.mldr, partitions, method="iterative")
+## ENSEMBLE OF CLASSIFIER CHAINS ##
 
-# Create an Ensemble of Classifier Chains using Random Forest (randomForest package)
+# ecc with random forests
+ecc.model <- ecc(ds$train, "RF", cores=2)
+
+# predict
+prediction.ecc <- predict(ecc.model, ds$test)
+
+# evaluate binary relevance
+ecc.result <- multilabel_evaluate(ds$tes, prediction.ecc, "bipartition")
+```
+
+```{r}
+## RAKEL ##
+
+# RAKEL with random forests
 rakel.model <- rakel(ds$train, "RF", cores=2)
 
-# Predict
-val <- predict(rakel.model, ds$val, cores=parallel::detectCores())
-test <- predict(rakel.model, ds$test, cores=parallel::detectCores())
-
-# Apply a threshold
-thresholds <- scut_threshold(val, ds$val, cores=parallel::detectCores())
-new.val <- fixed_threshold(val, thresholds)
-new.test <- fixed_threshold(test, thresholds)
+# predict
+prediction.rakel <- predict(rakel.model, ds$test)
 
 # Evaluate the models
-measures <- c("subset-accuracy", "F1", "hamming-loss", "macro-based") 
+rakel.result <- multilabel_evaluate(ds$tes, prediction.rakel, "bipartition")
+```
 
+```{r}
+## EPS ##
+
+# EPS with random forests
+eps.model <- eps(ds$train, "RF", cores=2)
+
+# predict
+prediction.eps <- predict(eps.model, ds$test)
+
+# Evaluate the models
+eps.result <- multilabel_evaluate(ds$tes, prediction.eps, "bipartition")
+```
+
+
+```{r}
+## HOMER ##
+
+# HOMER with random forests
+homer.model <- homer(ds$train, "RF", cores=2)
+
+# predict
+prediction.homer <- predict(homer.model, ds$test)
+
+# Evaluate the models
+homer.result <- multilabel_evaluate(ds$tes, prediction.homer, "bipartition")
+```
+
+```{r}
+# print results
 result <- cbind(
-  Test = multilabel_evaluate(ds$tes, test, measures),
-  TestWithThreshold = multilabel_evaluate(ds$tes, new.test, measures),
-  Validation = multilabel_evaluate(ds$val, val, measures),
-  ValidationWithThreshold = multilabel_evaluate(ds$val, new.val, measures)
+  br = br.result,
+  ecc = ecc.result,
+  rakel = rakel.result,
+  eps = eps.result,
+  homer = homer.result
 )
 
 print(round(result, 3))
 ```
+```{r}
+corrplot(result, method="color")
+```
+
 
