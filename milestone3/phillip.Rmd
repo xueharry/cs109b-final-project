@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library("caTools")
 library("utiml")
-# library("randomForest")
 ```
 
 
@@ -23,7 +22,7 @@ imdb5k <- read.csv('imdb5konehot.csv')
 # test <- imdb5k[!msk,]
 #     
 # startsWith(colnames(imdb5k), "i_")
-which(startsWith(colnames(imdb5k), "i_"))
+# which(startsWith(colnames(imdb5k), "i_"))
 ```
 
 ```{r}
