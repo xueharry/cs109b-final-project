@@ -170,6 +170,7 @@ br.model <- br(train.mldr, "RF", cores=2)
 
 # predict
 prediction.br <- predict(br.model, test.mldr, cores=2)
+write.csv(prediction.br, 'preds/br.csv')
 
 # evaluate binary relevance
 br.result <- multilabel_evaluate(test.mldr, prediction.br, "bipartition")
@@ -183,6 +184,7 @@ ecc.model <- ecc(train.mldr, "RF", cores=2)
 
 # predict
 prediction.ecc <- predict(ecc.model, test.mldr, cores=2)
+write.csv(prediction.ecc, 'preds/ecc.csv')
 
 # evaluate binary relevance
 ecc.result <- multilabel_evaluate(test.mldr, prediction.ecc, "bipartition")
@@ -197,6 +199,7 @@ rakel.model <- rakel(train.mldr, "RF", cores=2)
 
 # predict
 prediction.rakel <- predict(rakel.model, test.mldr, cores=2)
+write.csv(prediction.rakel, 'preds/rakel.csv')
 
 # Evaluate the models
 rakel.result <- multilabel_evaluate(test.mldr, prediction.rakel, "bipartition")
@@ -210,6 +213,7 @@ eps.model <- eps(train.mldr, "RF", cores=2)
 
 # predict
 prediction.eps <- predict(eps.model, test.mldr, cores=2)
+write.csv(prediction.eps, 'preds/eps.csv')
 
 # Evaluate the models
 eps.result <- multilabel_evaluate(test.mldr, prediction.eps, "bipartition")
@@ -223,6 +227,7 @@ homer.model <- homer(train.mldr, "RF", cores=2)
 
 # predict
 prediction.homer <- predict(homer.model, test.mldr, cores=2)
+write.csv(prediction.homer, 'preds/homer.csv')
 
 # Evaluate the models
 homer.result <- multilabel_evaluate(test.mldr, prediction.homer, "bipartition")
