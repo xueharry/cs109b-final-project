@@ -15,6 +15,7 @@ library("utiml")
 library("corrplot")
 ```
 
+## IMDB 5000, selected untuned models
 
 ```{r}
 ## PREPARE DATA ##
@@ -45,7 +46,7 @@ ds <- create_holdout_partition(imdb5k.mldr, c(train=0.80, test=0.20))
 br.model <- br(ds$train, "RF", cores=2)
 
 # predict
-prediction.br <- predict(br.model, ds$test)
+prediction.br <- predict(br.model, ds$test, cores=2)
 
 # evaluate binary relevance
 br.result <- multilabel_evaluate(ds$tes, prediction.br, "bipartition")
@@ -58,7 +59,7 @@ br.result <- multilabel_evaluate(ds$tes, prediction.br, "bipartition")
 ecc.model <- ecc(ds$train, "RF", cores=2)
 
 # predict
-prediction.ecc <- predict(ecc.model, ds$test)
+prediction.ecc <- predict(ecc.model, ds$test, cores=2)
 
 # evaluate binary relevance
 ecc.result <- multilabel_evaluate(ds$tes, prediction.ecc, "bipartition")
@@ -71,7 +72,7 @@ ecc.result <- multilabel_evaluate(ds$tes, prediction.ecc, "bipartition")
 rakel.model <- rakel(ds$train, "RF", cores=2)
 
 # predict
-prediction.rakel <- predict(rakel.model, ds$test)
+prediction.rakel <- predict(rakel.model, ds$test, cores=2)
 
 # Evaluate the models
 rakel.result <- multilabel_evaluate(ds$tes, prediction.rakel, "bipartition")
@@ -84,7 +85,7 @@ rakel.result <- multilabel_evaluate(ds$tes, prediction.rakel, "bipartition")
 eps.model <- eps(ds$train, "RF", cores=2)
 
 # predict
-prediction.eps <- predict(eps.model, ds$test)
+prediction.eps <- predict(eps.model, ds$test, cores=2)
 
 # Evaluate the models
 eps.result <- multilabel_evaluate(ds$tes, prediction.eps, "bipartition")
@@ -98,7 +99,7 @@ eps.result <- multilabel_evaluate(ds$tes, prediction.eps, "bipartition")
 homer.model <- homer(ds$train, "RF", cores=2)
 
 # predict
-prediction.homer <- predict(homer.model, ds$test)
+prediction.homer <- predict(homer.model, ds$test, cores=2)
 
 # Evaluate the models
 homer.result <- multilabel_evaluate(ds$tes, prediction.homer, "bipartition")
@@ -120,4 +121,125 @@ print(round(result, 3))
 corrplot(result, method="color")
 ```
 
+## Post Milestone 3 Content Begins Here
 
+Now, our goal is to extend the same results to the full data.
+
+```{r}
+## PREPARE DATA ##
+
+# load data
+train <- read.csv('full_data/full_data_train.csv')
+test <- read.csv('full_data/full_data_test.csv')
+
+# make zero budget and zero revenue NA
+train$budget[train$budget == 0] <- NA
+train$revenue[train$revenue == 0] <- NA
+test$budget[test$budget == 0] <- NA
+test$revenue[test$revenue == 0] <- NA
+
+# impute all columns by column median
+for(i in 1:ncol(train)){
+    train[is.na(train[,i]), i] <- median(train[,i], na.rm = TRUE)
+}
+for(i in 1:ncol(test)){
+    test[is.na(test[,i]), i] <- median(test[,i], na.rm = TRUE)
+}
+
+# drop ID columns
+train <- train[, -c(1,3)]
+test <- test[, -c(1,3)]
+
+# save for posterity
+write.csv(train, 'full_data/clean_train.csv')
+write.csv(test, 'full_data/clean_test.csv')
+
+# find first y column
+first.y <- which(colnames(train) == "Mystery")
+
+# create MLDR objects
+train.mldr <- mldr_from_dataframe(dataframe=train, labelIndices=first.y:length(test))
+test.mldr <- mldr_from_dataframe(dataframe=test, labelIndices=first.y:length(test))
+```
+
+```{r}
+## BINARY RELEVANCE ##
+
+# binary relevance with random forests
+br.model <- br(train.mldr, "RF", cores=2)
+
+# predict
+prediction.br <- predict(br.model, test.mldr, cores=2)
+
+# evaluate binary relevance
+br.result <- multilabel_evaluate(test.mldr, prediction.br, "bipartition")
+```
+
+```{r}
+## ENSEMBLE OF CLASSIFIER CHAINS ##
+
+# ecc with random forests
+ecc.model <- ecc(train.mldr, "RF", cores=2)
+
+# predict
+prediction.ecc <- predict(ecc.model, test.mldr, cores=2)
+
+# evaluate binary relevance
+ecc.result <- multilabel_evaluate(test.mldr, prediction.ecc, "bipartition")
+```
+
+
+```{r}
+## RAKEL ##
+
+# RAKEL with random forests
+rakel.model <- rakel(train.mldr, "RF", cores=2)
+
+# predict
+prediction.rakel <- predict(rakel.model, test.mldr, cores=2)
+
+# Evaluate the models
+rakel.result <- multilabel_evaluate(test.mldr, prediction.rakel, "bipartition")
+```
+
+```{r}
+## EPS ##
+
+# EPS with random forests
+eps.model <- eps(train.mldr, "RF", cores=2)
+
+# predict
+prediction.eps <- predict(eps.model, test.mldr, cores=2)
+
+# Evaluate the models
+eps.result <- multilabel_evaluate(test.mldr, prediction.eps, "bipartition")
+```
+
+```{r}
+## HOMER ##
+
+# HOMER with random forests
+homer.model <- homer(train.mldr, "RF", cores=2)
+
+# predict
+prediction.homer <- predict(homer.model, test.mldr, cores=2)
+
+# Evaluate the models
+homer.result <- multilabel_evaluate(test.mldr, prediction.homer, "bipartition")
+```
+
+```{r}
+# print results
+result <- cbind(
+  br = br.result,
+  ecc = ecc.result,
+  rakel = rakel.result,
+  eps = eps.result,
+  homer = homer.result
+)
+
+print(round(result, 3))
+```
+```{r}
+corrplot(result, method="color")
+```
